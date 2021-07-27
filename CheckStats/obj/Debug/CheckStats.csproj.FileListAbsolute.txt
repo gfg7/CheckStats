@@ -1,0 +1,7 @@
+D:\CheckStats\CheckStats\bin\Debug\CheckStats.exe.config
+D:\CheckStats\CheckStats\bin\Debug\CheckStats.exe
+D:\CheckStats\CheckStats\bin\Debug\CheckStats.pdb
+D:\CheckStats\CheckStats\obj\Debug\CheckStats.csproj.CoreCompileInputs.cache
+D:\CheckStats\CheckStats\obj\Debug\CheckStats.exe
+D:\CheckStats\CheckStats\obj\Debug\CheckStats.pdb
+D:\CheckStats\CheckStats\obj\Debug\CheckStats.csproj.AssemblyReference.cache
