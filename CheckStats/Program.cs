@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Management;
+using System.Threading.Tasks;
 using System.Timers;
 using System.Web.Script.Serialization;
 
@@ -38,13 +39,14 @@ $@"Get-ScheduledTask -TaskName ""SendStatsTask"" -ErrorAction SilentlyContinue -
                 Process.Start(startInfo);
             }
             #endregion
-            Timer timer = new Timer()
-            {
-                AutoReset = true,
-                Enabled = true,
-                Interval = TimeSpan.FromSeconds(3).TotalMilliseconds
-            };
-            timer.Elapsed += new ElapsedEventHandler(UpdateInfo);
+            //Timer timer = new Timer()
+            //{
+            //    AutoReset = true,
+            //    Enabled = true,
+            //    Interval = TimeSpan.FromSeconds(3).TotalMilliseconds
+            //};
+            //timer.Elapsed += new ElapsedEventHandler(UpdateInfo);
+            UpdateInfo(null, null);
             Console.Read();
         }
 
@@ -62,7 +64,7 @@ $@"Get-ScheduledTask -TaskName ""SendStatsTask"" -ErrorAction SilentlyContinue -
                     model.IPAddress = item.Properties["IPAddress"].Value.ToString();
                 }
             }
-            model.Users = GetModelsArray<User>(WMIClasses.UserAccount);
+            //model.Users = GetModelsArray<User>(WMIClasses.UserAccount);
             var m1 = GetModelsArray<Motherboard>(WMIClasses.Motherboard);
             var m2 = GetModelsArray<Motherboard>(WMIClasses.MotherboardDevice);
             for (int i = 0; i < m1.Length; i++)
@@ -77,7 +79,7 @@ $@"Get-ScheduledTask -TaskName ""SendStatsTask"" -ErrorAction SilentlyContinue -
             model.VideoAdapters = GetModelsArray<VideoAdapter>(WMIClasses.VideoController);
             model.RAMs = GetModelsArray<RAM>(WMIClasses.PhysicalMemory);
             model.Monitors = GetModelsArray<Monitor>(WMIClasses.DesktopMonitor);
-            model.Disks = GetModelsArray<Disk>(WMIClasses.DiskDrive);
+            //model.Disks = GetModelsArray<Disk>(WMIClasses.DiskDrive);
             #endregion
             string json = new JavaScriptSerializer().Serialize(model);
             Console.WriteLine(json);

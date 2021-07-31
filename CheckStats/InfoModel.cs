@@ -7,9 +7,11 @@ namespace CheckStats
     {
         private class InfoModel
         {
-            public string OS;
-            public string DesktopName;
-            public string Domain;
+            public string OS { get; set; }
+            public string DesktopName { get; set; }
+            public string Domain { get; set; }
+            public string IPAddress { get; set; }
+            public string MACAddress { get; set; }
 
             public CPU Processor { get; set; }
             public Motherboard[] Motherboards { get; set; }
@@ -17,8 +19,6 @@ namespace CheckStats
             public VideoAdapter[] VideoAdapters { get; set; }
             public Monitor[] Monitors { get; set; }
             public Disk[] Disks { get; set; }
-            public string IPAddress { get; set; }
-            public string MACAddress { get; set; }
             private Dictionary<string, double> Temperatures;
             public User[] Users { get; set; }
             private string HDDBrokenSectors;

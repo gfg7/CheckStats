@@ -1,6 +1,6 @@
 ﻿namespace CheckStats
 {
-    internal class Disk : HardwareBaseInfo
+    internal class Disk 
     {
         public uint BytesPerSector { get; set; }
         public string CompressionMethod { get; set; }
