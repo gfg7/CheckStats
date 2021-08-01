@@ -5,3 +5,10 @@ D:\CheckStats\CheckStats\obj\Debug\CheckStats.csproj.CoreCompileInputs.cache
 D:\CheckStats\CheckStats\obj\Debug\CheckStats.exe
 D:\CheckStats\CheckStats\obj\Debug\CheckStats.pdb
 D:\CheckStats\CheckStats\obj\Debug\CheckStats.csproj.AssemblyReference.cache
+D:\CheckStat\CheckStats\bin\Debug\CheckStats.exe.config
+D:\CheckStat\CheckStats\bin\Debug\CheckStats.exe
+D:\CheckStat\CheckStats\bin\Debug\CheckStats.pdb
+D:\CheckStat\CheckStats\obj\Debug\CheckStats.csproj.AssemblyReference.cache
+D:\CheckStat\CheckStats\obj\Debug\CheckStats.csproj.CoreCompileInputs.cache
+D:\CheckStat\CheckStats\obj\Debug\CheckStats.exe
+D:\CheckStat\CheckStats\obj\Debug\CheckStats.pdb

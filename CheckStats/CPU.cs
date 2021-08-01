@@ -2,28 +2,28 @@
 
 namespace CheckStats
 {
-    internal class CPU
+    internal class CPU:Base
     {
         public string Name { get; set; }
         public string ProcessorId { get; set; }
         [ScriptIgnore]
         public uint Architecture { get; set; }
-        public string ArchitectureType 
+        public string Type
         {
-            get {
-                string outValue=null;
-            switch (Architecture)
+            get
+            {
+                switch (Architecture)
                 {
-                    case 0: outValue = "x86 "; break;
-                    case 1: outValue = "MIPS"; break;
-                    case 2: outValue = "Alpha"; break;
-                    case 3: outValue = "PowerPC"; break;
-                    case 5: outValue = "ARM"; break;
-                    case 6: outValue = "ia64"; break;
-                    case 9: outValue = "x64"; break;
+                    case 0: return "x86 ";
+                    case 1: return "MIPS";
+                    case 2: return "Alpha";
+                    case 3: return "PowerPC";
+                    case 5: return "ARM";
+                    case 6: return "ia64";
+                    case 9: return "x64";
+                    default: return null;
                 }
-                return outValue;
-            } 
+            }
         }
         public uint NumberOfLogicalProcessors { get; set; }
     }

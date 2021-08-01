@@ -2,11 +2,10 @@
 
 namespace CheckStats
 {
-    internal class VideoAdapter
+    internal class VideoAdapter:Base
     {
         public string Name { get;set;}
         public string AdapterDACType{get;set;}
-        public string Status { get;set;}
         public uint AdapterRAM {get;set;}
         public uint CurrentHorizontalResolution {get;set;}
         public uint CurrentRefreshRate {get;set;}

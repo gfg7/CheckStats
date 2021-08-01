@@ -42,8 +42,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CPU.cs" />
-    <Compile Include="Disk.cs" />
-    <Compile Include="InfoModel.cs" />
+    <Compile Include="DiskPartition.cs" />
+    <Compile Include="LogicalDisk.cs" />
+    <Compile Include="PhysicalDisk.cs" />
+    <Compile Include="BaseModel.cs" />
     <Compile Include="Monitor.cs" />
     <Compile Include="Motherboard.cs" />
     <Compile Include="Program.cs" />

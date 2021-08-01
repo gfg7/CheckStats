@@ -2,52 +2,48 @@
 
 namespace CheckStats
 {
-    internal class RAM 
+    internal class RAM : Hardware
     {
-        public string Name { get; set; }
         public string Model { get; set; }
         public string Manufacturer { get; set; }
         public ulong Capacity { get; set; }
         [ScriptIgnore]
         public int MemoryType { get; set; }
-        public string RAMType
+        public string Type
         {
             get
             {
-                string outValue;
                 switch (MemoryType)
                 {
-                    case 0: outValue = "Unknown"; break;
-                    case 1: outValue = "Other"; break;
-                    case 2: outValue = "DRAM"; break;
-                    case 3: outValue = "Synchronous DRAM"; break;
-                    case 4: outValue = "Cache DRAM"; break;
-                    case 5: outValue = "EDO"; break;
-                    case 6: outValue = "EDRAM"; break;
-                    case 7: outValue = "VRAM"; break;
-                    case 8: outValue = "SRAM"; break;
-                    case 9: outValue = "RAM"; break;
-                    case 10: outValue = "ROM"; break;
-                    case 11: outValue = "Flash"; break;
-                    case 12: outValue = "EEPROM"; break;
-                    case 13: outValue = "FEPROM"; break;
-                    case 14: outValue = "EPROM"; break;
-                    case 15: outValue = "CDRAM"; break;
-                    case 16: outValue = "3DRAM"; break;
-                    case 17: outValue = "SDRAM"; break;
-                    case 18: outValue = "SGRAM"; break;
-                    case 19: outValue = "RDRAM"; break;
-                    case 20: outValue = "DDR"; break;
-                    case 21: outValue = "DDR2"; break;
-                    case 22: outValue = "DDR2 FB-DIMM"; break;
-                    case 24: outValue = "DDR3"; break;
-                    case 25: outValue = "FBD2"; break;
-                    case 26: outValue = "DDR4"; break;
-                    default: outValue = "Undefined"; break;
+                    case 0: return "Unknown";
+                    case 1: return "Other";
+                    case 2: return "DRAM";
+                    case 3: return "Synchronous DRAM";
+                    case 4: return "Cache DRAM";
+                    case 5: return "EDO";
+                    case 6: return "EDRAM";
+                    case 7: return "VRAM";
+                    case 8: return "SRAM";
+                    case 9: return "RAM";
+                    case 10: return "ROM";
+                    case 11: return "Flash";
+                    case 12: return "EEPROM";
+                    case 13: return "FEPROM";
+                    case 14: return "EPROM";
+                    case 15: return "CDRAM";
+                    case 16: return "3DRAM";
+                    case 17: return "SDRAM";
+                    case 18: return "SGRAM";
+                    case 19: return "RDRAM";
+                    case 20: return "DDR";
+                    case 21: return "DDR2";
+                    case 22: return "DDR2 FB-DIMM";
+                    case 24: return "DDR3";
+                    case 25: return "FBD2";
+                    case 26: return "DDR4";
+                    default: return "Undefined";
                 }
-                return outValue;
             }
         }
-        public string SerialNumber { get; set; }
     }
 }

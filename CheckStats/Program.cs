@@ -3,7 +3,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Management;
-using System.Threading.Tasks;
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using System.Timers;
 using System.Web.Script.Serialization;
 
@@ -11,7 +12,7 @@ namespace CheckStats
 {
     internal partial class Program
     {
-        private static InfoModel model = new InfoModel();
+        private static BaseModel model = new BaseModel();
 
         private static void Main(string[] args)
         {
@@ -39,13 +40,15 @@ $@"Get-ScheduledTask -TaskName ""SendStatsTask"" -ErrorAction SilentlyContinue -
                 Process.Start(startInfo);
             }
             #endregion
+            #region Timer
             //Timer timer = new Timer()
             //{
             //    AutoReset = true,
             //    Enabled = true,
-            //    Interval = TimeSpan.FromSeconds(3).TotalMilliseconds
+            //    Interval = TimeSpan.FromSeconds(30).TotalMilliseconds
             //};
             //timer.Elapsed += new ElapsedEventHandler(UpdateInfo);
+            #endregion
             UpdateInfo(null, null);
             Console.Read();
         }
@@ -56,40 +59,44 @@ $@"Get-ScheduledTask -TaskName ""SendStatsTask"" -ErrorAction SilentlyContinue -
             model.Domain = Environment.UserDomainName;
             model.DesktopName = Environment.MachineName;
             model.OS = Environment.OSVersion.VersionString;
-            using (var searcher = new ManagementObjectSearcher($"select * from Win32_NetworkAdapterConfiguration where IPEnabled=true"))
+            model.MACAddress = NetworkInterface.GetAllNetworkInterfaces()
+                .Where(x => x.NetworkInterfaceType == NetworkInterfaceType.Ethernet &&
+                x.OperationalStatus == OperationalStatus.Up)
+                .First().GetPhysicalAddress().ToString();
+            model.IPAddress = NetworkInterface.GetAllNetworkInterfaces()
+                .Select(x => x.GetIPProperties())
+                .Where(x => x.GatewayAddresses
+                .Where(g => g.Address.AddressFamily == AddressFamily.InterNetwork).Count() > 0)
+                .FirstOrDefault()?.UnicastAddresses?
+                .Where(u => u.Address.AddressFamily == AddressFamily.InterNetwork)?
+                .FirstOrDefault()?.Address.ToString();
+            model.User = GetArray<User>(WMIClasses.UserAccount);
+            model.Motherboard = GetArray<Motherboard>(WMIClasses.Motherboard)[0];
+            model.Processor = GetArray<CPU>(WMIClasses.Processor)[0];
+            model.VideoAdapter = GetArray<VideoAdapter>(WMIClasses.VideoController);
+            model.RAM = GetArray<RAM>(WMIClasses.PhysicalMemory);
+            model.Monitor = GetArray<Monitor>(WMIClasses.DesktopMonitor);
+            var d = GetArray<MonitorI>(WMIClasses.MonitorID, "\\\\.\\ROOT\\WMI");
+            for (int i = 0; i < model.Monitor.Length; i++)
             {
-                foreach (var item in searcher.Get())
-                {
-                    model.MACAddress = item.Properties["MACAddress"].Value.ToString();
-                    model.IPAddress = item.Properties["IPAddress"].Value.ToString();
-                }
+                model.Monitor[i]._Monitor = d[i];
             }
-            //model.Users = GetModelsArray<User>(WMIClasses.UserAccount);
-            var m1 = GetModelsArray<Motherboard>(WMIClasses.Motherboard);
-            var m2 = GetModelsArray<Motherboard>(WMIClasses.MotherboardDevice);
-            for (int i = 0; i < m1.Length; i++)
-            {
-                typeof(Motherboard).GetProperties().Where(x => x.GetValue(m1[i]) == null).ToList().ForEach(x =>
-                {
-                    x.SetValue(m1[i], typeof(Motherboard).GetProperty(x.Name).GetValue(m2[i]));
-                });
-            }
-            model.Motherboards = m1;
-            model.Processor = GetModelsArray<CPU>(WMIClasses.Processor).First();
-            model.VideoAdapters = GetModelsArray<VideoAdapter>(WMIClasses.VideoController);
-            model.RAMs = GetModelsArray<RAM>(WMIClasses.PhysicalMemory);
-            model.Monitors = GetModelsArray<Monitor>(WMIClasses.DesktopMonitor);
-            //model.Disks = GetModelsArray<Disk>(WMIClasses.DiskDrive);
+            model.Disk = GetArray<PhysicalDisk>(WMIClasses.DiskDrive);
+            model.LogicalPartition = GetArray<LogicalDisk>(WMIClasses.LogicalDisk);
             #endregion
             string json = new JavaScriptSerializer().Serialize(model);
             Console.WriteLine(json);
-            model = new InfoModel();
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            model = new BaseModel();
         }
 
-        private static T[] GetModelsArray<T>(string className) where T : class, new()
+        private static T[] GetArray<T>(string className, string scope = null) where T : class, new()
         {
             T[] array = null;
-            using (ManagementObjectSearcher searcher = new ManagementObjectSearcher("select * from " + className))
+            using (ManagementObjectSearcher searcher = new ManagementObjectSearcher(
+                new ManagementScope(scope),
+                new ObjectQuery("select * from " + className)))
             {
                 array = new T[searcher.Get().Count];
                 int count = 0;
