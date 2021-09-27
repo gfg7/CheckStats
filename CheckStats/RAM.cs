@@ -7,6 +7,9 @@ namespace CheckStats
         public string Model { get; set; }
         public string Manufacturer { get; set; }
         public ulong Capacity { get; set; }
+        public float? Load { get; set; }
+        public float? Used { get; set; }
+        public float? Available { get; set; }
         [ScriptIgnore]
         public int MemoryType { get; set; }
         public string Type

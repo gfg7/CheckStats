@@ -1,4 +1,5 @@
-﻿using System;
+﻿using OpenHardwareMonitor.Hardware;
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -10,10 +11,23 @@ using System.Web.Script.Serialization;
 
 namespace CheckStats
 {
-    internal partial class Program
+    internal partial class Program : IVisitor
     {
-        private static BaseModel model = new BaseModel();
-
+        private static Computer computer { get; set; }
+        private static BaseModel model { get; set; }
+        #region OpenHardwareMonitor
+        public void VisitComputer(IComputer computer)
+        {
+            computer.Traverse(this);
+        }
+        public void VisitHardware(IHardware hardware)
+        {
+            hardware.Update();
+            foreach (IHardware subHardware in hardware.SubHardware) subHardware.Accept(this);
+        }
+        public void VisitSensor(ISensor sensor) { }
+        public void VisitParameter(IParameter parameter) { }
+        #endregion
         private static void Main(string[] args)
         {
             #region Create Task 
@@ -40,6 +54,11 @@ $@"Get-ScheduledTask -TaskName ""SendStatsTask"" -ErrorAction SilentlyContinue -
                 Process.Start(startInfo);
             }
             #endregion
+            model = new BaseModel();
+            Program program = new Program();
+            computer = new Computer() { CPUEnabled = true, RAMEnabled = true, MainboardEnabled = true, GPUEnabled = true, HDDEnabled = true };
+            computer.Open();
+            computer.Accept(program);
             #region Timer
             //Timer timer = new Timer()
             //{
@@ -50,7 +69,7 @@ $@"Get-ScheduledTask -TaskName ""SendStatsTask"" -ErrorAction SilentlyContinue -
             //timer.Elapsed += new ElapsedEventHandler(UpdateInfo);
             #endregion
             UpdateInfo(null, null);
-            Console.Read();
+            computer.Close();
         }
 
         private static void UpdateInfo(object source, ElapsedEventArgs e)
@@ -73,8 +92,27 @@ $@"Get-ScheduledTask -TaskName ""SendStatsTask"" -ErrorAction SilentlyContinue -
             model.User = GetArray<User>(WMIClasses.UserAccount);
             model.Motherboard = GetArray<Motherboard>(WMIClasses.Motherboard)[0];
             model.Processor = GetArray<CPU>(WMIClasses.Processor)[0];
+            var cpu = computer.Hardware
+                .First(x => x.HardwareType == HardwareType.CPU);
+            model.Processor.Temperature = cpu.Sensors
+                .Where(x => x.SensorType == SensorType.Temperature)
+                .Select(x => x.Value)
+                .ToArray();
+            model.Processor.Load = cpu.Sensors
+                .Where(x => x.SensorType == SensorType.Load)
+                .Select(x => x.Value).First();
             model.VideoAdapter = GetArray<VideoAdapter>(WMIClasses.VideoController);
             model.RAM = GetArray<RAM>(WMIClasses.PhysicalMemory);
+            //var ram = computer.Hardware.Where(x => x.HardwareType == HardwareType.RAM);
+            //for (int i = 0; i < 2; i++)
+            //{
+            //    model.RAMLoad = ram.Sensors
+            //    .Where(x => x.SensorType == SensorType.Load && x.Name == model.RAM[i].Model)
+            //    .Select(x => x.Value);
+            //    model.RAM[i].Available = ram.Sensors
+            //    .Where(x => x.SensorType == SensorType.Load && x.Name == model.RAM[i].Model)
+            //    .Select(x => x.Value).First();
+            //}
             model.Monitor = GetArray<Monitor>(WMIClasses.DesktopMonitor);
             var d = GetArray<MonitorI>(WMIClasses.MonitorID, "\\\\.\\ROOT\\WMI");
             for (int i = 0; i < model.Monitor.Length; i++)
@@ -85,10 +123,12 @@ $@"Get-ScheduledTask -TaskName ""SendStatsTask"" -ErrorAction SilentlyContinue -
             model.LogicalPartition = GetArray<LogicalDisk>(WMIClasses.LogicalDisk);
             #endregion
             string json = new JavaScriptSerializer().Serialize(model);
+            model = null;
             Console.WriteLine(json);
             GC.Collect();
             GC.WaitForPendingFinalizers();
             model = new BaseModel();
+            Console.ReadKey();
         }
 
         private static T[] GetArray<T>(string className, string scope = null) where T : class, new()
@@ -112,7 +152,11 @@ $@"Get-ScheduledTask -TaskName ""SendStatsTask"" -ErrorAction SilentlyContinue -
                             {
                                 var value = item.GetPropertyValue(property.Name);
                                 if (value != null)
+                                {
+                                    if (value.GetType() == typeof(string))
+                                        value = value.ToString().Trim();
                                     modelProperty.SetValue(model, value);
+                                }
                             }
                         }
                         catch { }

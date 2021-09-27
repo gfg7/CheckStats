@@ -25,12 +25,12 @@ namespace CheckStats
             public CPU Processor { get; set; }
             public Motherboard Motherboard { get; set; }
             public RAM[] RAM { get; set; }
+            //public float?[] RAMLoad { get; set; }
+            //public float?[] RAMAAvailable { get; set; }
             public VideoAdapter[] VideoAdapter { get; set; }
             public Monitor[] Monitor { get; set; }
             public LogicalDisk[] LogicalPartition { get; set; }
-            //public DiskPartition[] Partitions { get; set; }
             public PhysicalDisk[] Disk { get; set; }
-            private Dictionary<string, double> Temperatures;
             public User[] User { get; set; }
         }
     }

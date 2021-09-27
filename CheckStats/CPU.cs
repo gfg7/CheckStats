@@ -26,5 +26,7 @@ namespace CheckStats
             }
         }
         public uint NumberOfLogicalProcessors { get; set; }
+        public float?[] Temperature{ get; set; }
+        public float? Load { get; set; }
     }
 }

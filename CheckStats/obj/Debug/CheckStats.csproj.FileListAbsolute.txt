@@ -12,3 +12,12 @@ D:\CheckStat\CheckStats\obj\Debug\CheckStats.csproj.AssemblyReference.cache
 D:\CheckStat\CheckStats\obj\Debug\CheckStats.csproj.CoreCompileInputs.cache
 D:\CheckStat\CheckStats\obj\Debug\CheckStats.exe
 D:\CheckStat\CheckStats\obj\Debug\CheckStats.pdb
+D:\Check\CheckStats\bin\Debug\CheckStats.exe.config
+D:\Check\CheckStats\bin\Debug\CheckStats.exe
+D:\Check\CheckStats\bin\Debug\CheckStats.pdb
+D:\Check\CheckStats\obj\Debug\CheckStats.csproj.AssemblyReference.cache
+D:\Check\CheckStats\obj\Debug\CheckStats.csproj.CoreCompileInputs.cache
+D:\Check\CheckStats\obj\Debug\CheckStats.exe
+D:\Check\CheckStats\obj\Debug\CheckStats.pdb
+D:\Check\CheckStats\bin\Debug\OpenHardwareMonitorLib.dll
+D:\Check\CheckStats\obj\Debug\CheckStats.csproj.CopyComplete
