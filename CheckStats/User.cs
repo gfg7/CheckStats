@@ -1,8 +1,4 @@
-﻿using System;
-using System.Runtime.Serialization;
-using System.Web.Script.Serialization;
-
-namespace CheckStats
+﻿namespace CheckStats
 {
     internal partial class Program
     {

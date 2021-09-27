@@ -1,14 +1,11 @@
-﻿using System.Collections.Generic;
-
-
-namespace CheckStats
+﻿namespace CheckStats
 {
     internal abstract class Base
     {
         public string Status { get; set; }
     }
 
-    internal abstract class Hardware: Base
+    internal abstract class Hardware : Base
     {
         public string SerialNumber { get; set; }
     }

@@ -9,9 +9,7 @@ namespace CheckStats
     {
         [ScriptIgnore]
         public MonitorI _Monitor;
-
         public uint Bandwidth { get; set; }
-
         public new string SerialNumber
         {
             get
@@ -23,14 +21,10 @@ namespace CheckStats
                 return res != "0" ? res : null;
             }
         }
-
         public string MonitorType { get; set; }
-
         public string ProductName => _Monitor.InstanceName?.Split('\\')[1];
-
         [ScriptIgnore]
         public string MonitorManufacturer { get; set; }
-
         public string Manufacturer
         {
             get
@@ -44,9 +38,7 @@ namespace CheckStats
                     .ToArray());
             }
         }
-
         public uint PixelsPerXLogicalInch { get; set; }
-
         public uint PixelsPerYLogicalInch { get; set; }
     }
 

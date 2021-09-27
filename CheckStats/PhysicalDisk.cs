@@ -1,9 +1,6 @@
-﻿using System;
-using System.Web.Script.Serialization;
-
-namespace CheckStats
+﻿namespace CheckStats
 {
-    internal class PhysicalDisk: Hardware
+    internal class PhysicalDisk : Hardware
     {
         public string Model { get; set; }
         public string Manufacturer { get; set; }

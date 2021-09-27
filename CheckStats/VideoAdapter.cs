@@ -1,15 +1,13 @@
-﻿using System;
-
-namespace CheckStats
+﻿namespace CheckStats
 {
-    internal class VideoAdapter:Base
+    internal class VideoAdapter : Base
     {
-        public string Name { get;set;}
-        public string AdapterDACType{get;set;}
-        public uint AdapterRAM {get;set;}
-        public uint CurrentHorizontalResolution {get;set;}
-        public uint CurrentRefreshRate {get;set;}
-        public uint CurrentVerticalResolution {get;set;}
-        public string DriverVersion{get;set;}
+        public string Name { get; set; }
+        public string AdapterDACType { get; set; }
+        public uint AdapterRAM { get; set; }
+        public uint CurrentHorizontalResolution { get; set; }
+        public uint CurrentRefreshRate { get; set; }
+        public uint CurrentVerticalResolution { get; set; }
+        public string DriverVersion { get; set; }
     }
 }
