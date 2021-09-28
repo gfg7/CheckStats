@@ -34,7 +34,7 @@ namespace CheckStats
         #endregion
         private static void Main(string[] args)
         {
-            Task.Run(CreateTask);
+            Task.Run(FirstRun);
             _client = new HttpClient();
             Program program = new Program();
             _computer = new Computer()
@@ -157,34 +157,39 @@ namespace CheckStats
             return array;
         }
 
-        private static void CreateTask()
+        private static void FirstRun()
         {
             if (ConfigurationManager.AppSettings.Get("NeedTask").First() == '1')
             {
-                string path = Path.Combine(Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName), "createTask.ps1");
-                File.WriteAllText(path,
+                string path = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName);
+                File.WriteAllText(Path.Combine(path, "checkDisk.ps1"), 
+                    @"Get-WmiObject -namespace root\wmi –class MSStorageDriver_FailurePredictStatus");
+                File.WriteAllText(Path.Combine(path, "createTask.ps1"),
                     $@"Get-ScheduledTask -TaskName ""SendStatsTask"" -ErrorAction SilentlyContinue -OutVariable task 
                                     if (!$task){{
                                     $Trigger = New-ScheduledTaskTrigger -AtStartup
                                     $User = ""NT AUTHORITY\SYSTEM""
                                     $Action = New-ScheduledTaskAction -Execute ""{Process.GetCurrentProcess().MainModule.FileName}""
                                     Register-ScheduledTask -TaskName ""SendStatsTask"" -Trigger $Trigger -User $User -Action $Action -RunLevel Highest -Force
-                    }}");
-                ProcessStartInfo startInfo = new ProcessStartInfo
-                {
-                    FileName = "powershell.exe",
-                    Verb = "runas",
-                    Arguments = $@"powershell -executionpolicy remotesigned -File {path}",
-                    //Arguments = $@"powershell -noexit -executionpolicy remotesigned -File {path}",
-                    CreateNoWindow = true,
-                    WindowStyle = ProcessWindowStyle.Hidden
-                };
-                var task = Process.Start(startInfo);
-                task.WaitForExit();
-                if (task.HasExited)
-                    File.Delete(path);
+                    }} Read-Host -Prompt ""Press Enter to exit""");
+                CreateTask(path);
                 ConfigurationManager.AppSettings.Set("NeedTask", "0");
             }
+        }
+        private static void CreateTask(string path)
+        {
+            ProcessStartInfo startInfo = new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Verb = "runas",
+                //Arguments = $@"powershell -executionpolicy remotesigned -File {path}",
+                Arguments = $@"PowerShell -NoExit -executionpolicy remotesigned -File {path}"
+                //,
+                //CreateNoWindow = true,
+                //WindowStyle = ProcessWindowStyle.Hidden
+            };
+            var task = Process.Start(startInfo);
+            task.WaitForExit();
         }
     }
 }
