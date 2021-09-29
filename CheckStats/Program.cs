@@ -161,35 +161,42 @@ namespace CheckStats
         {
             if (ConfigurationManager.AppSettings.Get("NeedTask").First() == '1')
             {
-                string path = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName);
-                File.WriteAllText(Path.Combine(path, "checkDisk.ps1"), 
-                    @"Get-WmiObject -namespace root\wmi –class MSStorageDriver_FailurePredictStatus");
-                File.WriteAllText(Path.Combine(path, "createTask.ps1"),
-                    $@"Get-ScheduledTask -TaskName ""SendStatsTask"" -ErrorAction SilentlyContinue -OutVariable task 
+                string path= Path.Combine(Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName), "createTask.ps1"),
+                    dskchkPath = Path.Combine(Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName), "CheckDisk.ps1");
+                File.WriteAllText(dskchkPath,
+                    $@"$(Get-WmiObject -namespace root\wmi –class MSStorageDriver_FailurePredictStatus) *>&1 > {Path.Combine(Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName), "output.txt")}");
+                File.WriteAllText(path,
+                    $@"Get-ScheduledTask -TaskName ""CheckDisk"" -ErrorAction SilentlyContinue -OutVariable chkdsk 
+                                    if (!$chkdsk){{
+                                    $Trigger = New-ScheduledTaskTrigger -AtStartup
+                                    $User = ""NT AUTHORITY\SYSTEM""
+                                    $Action = New-ScheduledTaskAction -Execute ""{dskchkPath}""
+                                    Register-ScheduledTask -TaskName ""CheckDisk"" -Trigger $Trigger -User $User -Action $Action -RunLevel Highest -Force
+                    }}
+                      Get-ScheduledTask -TaskName ""SendStats"" -ErrorAction SilentlyContinue -OutVariable task 
                                     if (!$task){{
                                     $Trigger = New-ScheduledTaskTrigger -AtStartup
                                     $User = ""NT AUTHORITY\SYSTEM""
                                     $Action = New-ScheduledTaskAction -Execute ""{Process.GetCurrentProcess().MainModule.FileName}""
-                                    Register-ScheduledTask -TaskName ""SendStatsTask"" -Trigger $Trigger -User $User -Action $Action -RunLevel Highest -Force
-                    }} Read-Host -Prompt ""Press Enter to exit""");
-                CreateTask(path);
+                                    Register-ScheduledTask -TaskName ""SendStats"" -Trigger $Trigger -User $User -Action $Action -RunLevel Highest -Force
+                    }}");
+
+                ProcessStartInfo startInfo = new ProcessStartInfo
+                {
+                    FileName = "powershell.exe",
+                    Verb = "runas",
+                    Arguments = $@"powershell -executionpolicy remotesigned -File {path}",
+                    CreateNoWindow = true,
+                    WindowStyle = ProcessWindowStyle.Hidden,
+                    UseShellExecute = false
+                };
+                var task = Process.Start(startInfo);
+                task.WaitForExit();
+                var config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
                 ConfigurationManager.AppSettings.Set("NeedTask", "0");
+                config.Save(ConfigurationSaveMode.Modified);
+                ConfigurationManager.RefreshSection("NeedTask");
             }
-        }
-        private static void CreateTask(string path)
-        {
-            ProcessStartInfo startInfo = new ProcessStartInfo
-            {
-                FileName = "powershell.exe",
-                Verb = "runas",
-                //Arguments = $@"powershell -executionpolicy remotesigned -File {path}",
-                Arguments = $@"PowerShell -NoExit -executionpolicy remotesigned -File {path}"
-                //,
-                //CreateNoWindow = true,
-                //WindowStyle = ProcessWindowStyle.Hidden
-            };
-            var task = Process.Start(startInfo);
-            task.WaitForExit();
         }
     }
 }
