@@ -2,7 +2,7 @@
 
 namespace CheckStats
 {
-    internal class LogicalDisk:Base
+    internal class LogicalDisk
     {
         public string Name { get; set; }
         [ScriptIgnore]

@@ -2,7 +2,7 @@
 {
     internal partial class Program
     {
-        private class User : Base
+        private class User
         {
             public bool Disabled { get; set; }
             public string Domain { get; set; }

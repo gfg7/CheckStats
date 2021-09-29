@@ -9,7 +9,6 @@ namespace CheckStats
     {
         [ScriptIgnore]
         public MonitorI _Monitor;
-        public uint Bandwidth { get; set; }
         public new string SerialNumber
         {
             get
@@ -38,8 +37,6 @@ namespace CheckStats
                     .ToArray());
             }
         }
-        public uint PixelsPerXLogicalInch { get; set; }
-        public uint PixelsPerYLogicalInch { get; set; }
     }
 
     internal class MonitorI { 

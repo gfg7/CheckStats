@@ -1,5 +1,6 @@
 ﻿using OpenHardwareMonitor.Hardware;
 using System;
+using System.Collections.Generic;
 using System.Configuration;
 using System.Diagnostics;
 using System.IO;
@@ -16,9 +17,17 @@ namespace CheckStats
 {
     internal partial class Program : IVisitor
     {
-        private static Computer _computer;
-        private static HttpClient _client;
-        private static BaseModel _model;
+        private static Computer c;
+        private static HttpClient client;
+        private static Program p;
+        private static BaseModel model;
+
+        private IHardware motherboard;
+        private IHardware cpu;
+        private IEnumerable<IHardware> gpu;
+        private IEnumerable<IHardware> rams;
+        private IEnumerable<IHardware> disks;
+
         #region OpenHardwareMonitor
         public void VisitComputer(IComputer computer)
         {
@@ -32,85 +41,143 @@ namespace CheckStats
         public void VisitSensor(ISensor sensor) { }
         public void VisitParameter(IParameter parameter) { }
         #endregion
+
         private static void Main(string[] args)
         {
             Task.Run(FirstRun);
-            _client = new HttpClient();
-            Program program = new Program();
-            _computer = new Computer()
+            model = new BaseModel();
+            p = new Program();
+            client = new HttpClient();
+            c = new Computer()
             {
                 CPUEnabled = true,
                 RAMEnabled = true,
                 MainboardEnabled = true,
                 GPUEnabled = true,
-                HDDEnabled = true
+                HDDEnabled = true,
+                FanControllerEnabled = true
             };
-            _computer.Accept(program);
-            Timer timer = new Timer()
+            c.Accept(p);
+            c.Open();
+            p.VisitComputer(c);
+            #region Static info
+            model.DesktopName = Environment.MachineName;
+
+            model.OS = Environment.OSVersion.VersionString;
+
+            model.Motherboard = GetArray<Motherboard>(WMIClasses.Motherboard)[0];
+            p.motherboard = c.Hardware
+                .First(x => x.HardwareType == HardwareType.Mainboard)
+                .SubHardware
+                .First();
+
+            model.Processor = GetArray<CPU>(WMIClasses.Processor)[0];
+            p.cpu = c.Hardware
+                .First(x => x.HardwareType == HardwareType.CPU);
+
+            p.gpu = c.Hardware.Where(x => x.HardwareType == HardwareType.GpuAti || x.HardwareType == HardwareType.GpuNvidia);
+
+            p.disks = c.Hardware.Where(x => x.HardwareType == HardwareType.HDD);
+
+            p.rams= c.Hardware.Where(x => x.HardwareType == HardwareType.RAM);
+
+            model.Monitor = GetArray<Monitor>(WMIClasses.DesktopMonitor);
+            var d = GetArray<MonitorI>(WMIClasses.MonitorID, "\\\\.\\ROOT\\WMI");
+            for (int i = 0; i < model.Monitor.Length; i++)
             {
-                AutoReset = true,
-                Enabled = true,
-                Interval = TimeSpan.FromSeconds(30).TotalMilliseconds
-            };
-            timer.Elapsed += new ElapsedEventHandler(SendInfoAsync);
+                model.Monitor[i]._Monitor = d[i];
+            }
+            #endregion
+
+            #region Timer
+            //Timer timer = new Timer()
+            //{
+            //    AutoReset = true,
+            //    Enabled = true,
+            //    Interval = TimeSpan.FromSeconds(30).TotalMilliseconds
+            //};
+            //timer.Elapsed += new ElapsedEventHandler(SendInfoAsync);
+            #endregion
+
+            SendInfoAsync(null, null);
+            c.Close();
             Console.Read();
         }
 
         private static async void SendInfoAsync(object source, ElapsedEventArgs e)
         {
-            _model = new BaseModel();
-            _computer.Open();
-            SetProperties();
-            _computer.Close();
-            string json = new JavaScriptSerializer().Serialize(_model);
-            _model = null;
+            SetDynamicProperties();
+            string json = new JavaScriptSerializer().Serialize(model);
             try
             {
-                await _client.PostAsync(ConfigurationManager.AppSettings.Get("Server").First().ToString(), new StringContent(json));
+                await client.PostAsync(ConfigurationManager.AppSettings.Get("Server").First().ToString(), new StringContent(json));
             }
             catch { }
             Console.WriteLine(json);
             GC.Collect();
         }
 
-        private static void SetProperties()
+        private static void SetDynamicProperties()
         {
-            _model.Domain = Environment.UserDomainName;
-            _model.DesktopName = Environment.MachineName;
-            _model.OS = Environment.OSVersion.VersionString;
-            _model.MACAddress = NetworkInterface.GetAllNetworkInterfaces()
-                .Where(x => x.NetworkInterfaceType == NetworkInterfaceType.Ethernet &&
-                x.OperationalStatus == OperationalStatus.Up)
-                .First().GetPhysicalAddress().ToString();
-            _model.IPAddress = NetworkInterface.GetAllNetworkInterfaces()
+            model.Domain = Environment.UserDomainName;
+
+            model.MACAddress = NetworkInterface.GetAllNetworkInterfaces()
+                 .Where(x => x.NetworkInterfaceType == NetworkInterfaceType.Ethernet &&
+                 x.OperationalStatus == OperationalStatus.Up)
+                 .First().GetPhysicalAddress().ToString();
+
+            model.IPAddress = NetworkInterface.GetAllNetworkInterfaces()
                 .Select(x => x.GetIPProperties())
                 .Where(x => x.GatewayAddresses
                 .Where(g => g.Address.AddressFamily == AddressFamily.InterNetwork).Count() > 0)
                 .FirstOrDefault()?.UnicastAddresses?
                 .Where(u => u.Address.AddressFamily == AddressFamily.InterNetwork)?
                 .FirstOrDefault()?.Address.ToString();
-            _model.User = GetArray<User>(WMIClasses.UserAccount);
-            _model.Motherboard = GetArray<Motherboard>(WMIClasses.Motherboard)[0];
-            _model.Processor = GetArray<CPU>(WMIClasses.Processor)[0];
-            var cpu = _computer.Hardware
-                .First(x => x.HardwareType == HardwareType.CPU);
-            _model.Processor.Temperature = cpu.Sensors
+
+            model.User = GetArray<User>(WMIClasses.UserAccount);
+
+            p.VisitHardware(p.motherboard);
+            model.Motherboard.Temperature = p.motherboard.Sensors
+                .First(x => x.SensorType == SensorType.Temperature)
+                .Value;
+
+            p.VisitHardware(p.cpu);
+            model.Processor.Temperature = p.cpu.Sensors
                 .Where(x => x.SensorType == SensorType.Temperature)
                 .Select(x => x.Value)
                 .ToArray();
-            _model.Processor.Load = cpu.Sensors
+            model.Processor.Load = p.cpu.Sensors
                 .Where(x => x.SensorType == SensorType.Load)
                 .Select(x => x.Value).First();
-            _model.VideoAdapter = GetArray<VideoAdapter>(WMIClasses.VideoController);
-            _model.RAM = GetArray<RAM>(WMIClasses.PhysicalMemory);
-            _model.Monitor = GetArray<Monitor>(WMIClasses.DesktopMonitor);
-            var d = GetArray<MonitorI>(WMIClasses.MonitorID, "\\\\.\\ROOT\\WMI");
-            for (int i = 0; i < _model.Monitor.Length; i++)
+
+            model.VideoAdapter = GetArray<VideoAdapter>(WMIClasses.VideoController);
+            if (p.gpu is null)
             {
-                _model.Monitor[i]._Monitor = d[i];
+
             }
-            _model.Disk = GetArray<PhysicalDisk>(WMIClasses.DiskDrive);
-            _model.LogicalPartition = GetArray<LogicalDisk>(WMIClasses.LogicalDisk);
+            else
+            {
+
+            }
+
+            model.RAM = GetArray<RAM>(WMIClasses.PhysicalMemory);
+            for (int i = 0; i < p.rams.Count(); i++)
+            {
+                var ram = p.rams.ElementAt(i);
+                p.VisitHardware(ram);
+                model.RAM[i].Available = ram.Sensors.First(x => x.Name == "Available Memory").Value;
+                model.RAM[i].Used = ram.Sensors.First(x => x.Name == "Used Memory").Value;
+            }
+
+            model.Disk = GetArray<PhysicalDisk>(WMIClasses.DiskDrive);
+            for (int i = 0; i < p.disks.Count(); i++)
+            {
+                var disk = p.disks.ElementAt(i);
+                p.VisitHardware(disk);
+                model.Disk.First(x => x.Model == disk.Name).Temperature = disk.Sensors.First(x => x.SensorType == SensorType.Temperature).Value;
+            }
+
+            model.LogicalPartition = GetArray<LogicalDisk>(WMIClasses.LogicalDisk);
         }
 
         private static T[] GetArray<T>(string className, string scope = null) where T : class, new()
@@ -161,7 +228,7 @@ namespace CheckStats
         {
             if (ConfigurationManager.AppSettings.Get("NeedTask").First() == '1')
             {
-                string path= Path.Combine(Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName), "createTask.ps1"),
+                string path = Path.Combine(Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName), "createTask.ps1"),
                     dskchkPath = Path.Combine(Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName), "CheckDisk.ps1");
                 File.WriteAllText(dskchkPath,
                     $@"$(Get-WmiObject -namespace root\wmi –class MSStorageDriver_FailurePredictStatus) *>&1 > {Path.Combine(Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName), "output.txt")}");

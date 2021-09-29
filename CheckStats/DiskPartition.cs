@@ -1,7 +1,7 @@
 ﻿namespace CheckStats
 {
 
-    internal class DiskPartition:Base
+    internal class DiskPartition
     {
         public string DeviceID { get; set; }
         public uint Index { get; set; }
