@@ -160,6 +160,7 @@ namespace CheckStats
 
             }
 
+            #region RAM
             model.RAM = GetArray<RAM>(WMIClasses.PhysicalMemory);
             for (int i = 0; i < p.rams.Count(); i++)
             {
@@ -168,6 +169,7 @@ namespace CheckStats
                 model.RAM[i].Available = ram.Sensors.First(x => x.Name == "Available Memory").Value;
                 model.RAM[i].Used = ram.Sensors.First(x => x.Name == "Used Memory").Value;
             }
+            #endregion
 
             model.Disk = GetArray<PhysicalDisk>(WMIClasses.DiskDrive);
             for (int i = 0; i < p.disks.Count(); i++)
