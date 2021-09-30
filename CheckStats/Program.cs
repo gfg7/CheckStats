@@ -17,6 +17,8 @@ namespace CheckStats
 {
     internal partial class Program : IVisitor
     {
+        private static readonly string programPath = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName);
+
         private static Computer c;
         private static HttpClient client;
         private static Program p;
@@ -42,9 +44,9 @@ namespace CheckStats
         public void VisitParameter(IParameter parameter) { }
         #endregion
 
-        private static void Main(string[] args)
+        private static async Task Main(string[] args)
         {
-            Task.Run(FirstRun);
+            await FirstRun();
             model = new BaseModel();
             p = new Program();
             client = new HttpClient();
@@ -65,13 +67,13 @@ namespace CheckStats
 
             model.OS = Environment.OSVersion.VersionString;
 
-            model.Motherboard = GetArray<Motherboard>(WMIClasses.Motherboard)[0];
+            model.Motherboard = (await WMISearch<Motherboard>(WMIClasses.Motherboard))[0];
             p.motherboard = c.Hardware
                 .First(x => x.HardwareType == HardwareType.Mainboard)
                 .SubHardware
                 .First();
 
-            model.Processor = GetArray<CPU>(WMIClasses.Processor)[0];
+            model.Processor = (await WMISearch<CPU>(WMIClasses.Processor))[0];
             p.cpu = c.Hardware
                 .First(x => x.HardwareType == HardwareType.CPU);
 
@@ -79,10 +81,10 @@ namespace CheckStats
 
             p.disks = c.Hardware.Where(x => x.HardwareType == HardwareType.HDD);
 
-            p.rams= c.Hardware.Where(x => x.HardwareType == HardwareType.RAM);
+            p.rams = c.Hardware.Where(x => x.HardwareType == HardwareType.RAM);
 
-            model.Monitor = GetArray<Monitor>(WMIClasses.DesktopMonitor);
-            var d = GetArray<MonitorI>(WMIClasses.MonitorID, "\\\\.\\ROOT\\WMI");
+            model.Monitor = await WMISearch<Monitor>(WMIClasses.DesktopMonitor);
+            var d = await WMISearch<MonitorI>(WMIClasses.MonitorID, "\\\\.\\ROOT\\WMI");
             for (int i = 0; i < model.Monitor.Length; i++)
             {
                 model.Monitor[i]._Monitor = d[i];
@@ -106,7 +108,7 @@ namespace CheckStats
 
         private static async void SendInfoAsync(object source, ElapsedEventArgs e)
         {
-            SetDynamicProperties();
+            await SetDynamicProperties();
             string json = new JavaScriptSerializer().Serialize(model);
             try
             {
@@ -117,7 +119,7 @@ namespace CheckStats
             GC.Collect();
         }
 
-        private static void SetDynamicProperties()
+        private static async Task SetDynamicProperties()
         {
             model.Domain = Environment.UserDomainName;
 
@@ -134,7 +136,7 @@ namespace CheckStats
                 .Where(u => u.Address.AddressFamily == AddressFamily.InterNetwork)?
                 .FirstOrDefault()?.Address.ToString();
 
-            model.User = GetArray<User>(WMIClasses.UserAccount);
+            model.User = await WMISearch<User>(WMIClasses.UserAccount);
 
             p.VisitHardware(p.motherboard);
             model.Motherboard.Temperature = p.motherboard.Sensors
@@ -150,18 +152,22 @@ namespace CheckStats
                 .Where(x => x.SensorType == SensorType.Load)
                 .Select(x => x.Value).First();
 
-            model.VideoAdapter = GetArray<VideoAdapter>(WMIClasses.VideoController);
+            model.GPU = await WMISearch<VideoAdapter>(WMIClasses.VideoController);
             if (p.gpu is null)
             {
-
+                model.GPU[0].Temperature = model.Motherboard.Temperature;
             }
             else
             {
-
+                for (int i = 0; i < p.gpu.Count(); i++)
+                {
+                    var gpu = p.gpu.ElementAt(i);
+                    p.VisitHardware(gpu);
+                    model.GPU[i].Temperature = gpu.Sensors.First(x => x.SensorType == SensorType.Temperature).Value;
+                }
             }
 
-            #region RAM
-            model.RAM = GetArray<RAM>(WMIClasses.PhysicalMemory);
+            model.RAM = await WMISearch<RAM>(WMIClasses.PhysicalMemory);
             for (int i = 0; i < p.rams.Count(); i++)
             {
                 var ram = p.rams.ElementAt(i);
@@ -169,9 +175,8 @@ namespace CheckStats
                 model.RAM[i].Available = ram.Sensors.First(x => x.Name == "Available Memory").Value;
                 model.RAM[i].Used = ram.Sensors.First(x => x.Name == "Used Memory").Value;
             }
-            #endregion
 
-            model.Disk = GetArray<PhysicalDisk>(WMIClasses.DiskDrive);
+            model.Disk = await WMISearch<PhysicalDisk>(WMIClasses.DiskDrive);
             for (int i = 0; i < p.disks.Count(); i++)
             {
                 var disk = p.disks.ElementAt(i);
@@ -179,17 +184,11 @@ namespace CheckStats
                 model.Disk.First(x => x.Model == disk.Name).Temperature = disk.Sensors.First(x => x.SensorType == SensorType.Temperature).Value;
             }
 
-            model.LogicalPartition = GetArray<LogicalDisk>(WMIClasses.LogicalDisk);
+            model.LogicalPartition = await WMISearch<LogicalDisk>(WMIClasses.LogicalDisk, null);
+
         }
 
-        private static T[] GetArray<T>(string className, string scope = null) where T : class, new()
-        {
-            var task = Task.Run(() => WMISearch<T>(className, scope));
-            task.Wait();
-            return task.Result;
-        }
-
-        private static T[] WMISearch<T>(string className, string scope) where T : class, new()
+        private static async Task<T[]> WMISearch<T>(string className, string scope=null) where T : class, new()
         {
             T[] array = null;
             using (ManagementObjectSearcher searcher = new ManagementObjectSearcher(
@@ -226,45 +225,61 @@ namespace CheckStats
             return array;
         }
 
-        private static void FirstRun()
+        private static async Task FirstRun()
         {
             if (ConfigurationManager.AppSettings.Get("NeedTask").First() == '1')
             {
-                string path = Path.Combine(Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName), "createTask.ps1"),
-                    dskchkPath = Path.Combine(Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName), "CheckDisk.ps1");
-                File.WriteAllText(dskchkPath,
-                    $@"$(Get-WmiObject -namespace root\wmi –class MSStorageDriver_FailurePredictStatus) *>&1 > {Path.Combine(Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName), "output.txt")}");
+                string path = Path.Combine(programPath, "createTask.ps1");
+
                 File.WriteAllText(path,
-                    $@"Get-ScheduledTask -TaskName ""CheckDisk"" -ErrorAction SilentlyContinue -OutVariable chkdsk 
-                                    if (!$chkdsk){{
-                                    $Trigger = New-ScheduledTaskTrigger -AtStartup
-                                    $User = ""NT AUTHORITY\SYSTEM""
-                                    $Action = New-ScheduledTaskAction -Execute ""{dskchkPath}""
-                                    Register-ScheduledTask -TaskName ""CheckDisk"" -Trigger $Trigger -User $User -Action $Action -RunLevel Highest -Force
-                    }}
-                      Get-ScheduledTask -TaskName ""SendStats"" -ErrorAction SilentlyContinue -OutVariable task 
-                                    if (!$task){{
-                                    $Trigger = New-ScheduledTaskTrigger -AtStartup
-                                    $User = ""NT AUTHORITY\SYSTEM""
-                                    $Action = New-ScheduledTaskAction -Execute ""{Process.GetCurrentProcess().MainModule.FileName}""
-                                    Register-ScheduledTask -TaskName ""SendStats"" -Trigger $Trigger -User $User -Action $Action -RunLevel Highest -Force
+                    $@"Get-ScheduledTask -TaskName ""SendStats"" -ErrorAction SilentlyContinue -OutVariable task 
+                    if (!$task){{
+                    $Trigger = New-ScheduledTaskTrigger -AtStartup
+                    $User = ""NT AUTHORITY\SYSTEM""
+                    $Action = New-ScheduledTaskAction -Execute ""{programPath}""
+                    Register-ScheduledTask -TaskName ""SendStats"" -Trigger $Trigger -User $User -Action $Action -RunLevel Highest -Force
                     }}");
 
-                ProcessStartInfo startInfo = new ProcessStartInfo
-                {
-                    FileName = "powershell.exe",
-                    Verb = "runas",
-                    Arguments = $@"powershell -executionpolicy remotesigned -File {path}",
-                    CreateNoWindow = true,
-                    WindowStyle = ProcessWindowStyle.Hidden,
-                    UseShellExecute = false
-                };
-                var task = Process.Start(startInfo);
-                task.WaitForExit();
+                await StartPowershell(path);
                 var config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
                 ConfigurationManager.AppSettings.Set("NeedTask", "0");
                 config.Save(ConfigurationSaveMode.Modified);
                 ConfigurationManager.RefreshSection("NeedTask");
+            }
+        }
+
+        private static async Task<string> StartPowershell(string path, bool redirect = false)
+        {
+            ProcessStartInfo startInfo = new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Verb = "runas",
+                Arguments = $@"powershell -executionpolicy remotesigned -File {path}",
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden,
+                UseShellExecute = false,
+                RedirectStandardOutput = true
+            };
+            var task = Process.Start(startInfo);
+            string result = null;
+            if (redirect)
+            {
+                using (var stream = task.StandardOutput)
+                {
+                    result = await stream.ReadToEndAsync();
+                }
+            }
+            task.WaitForExit();
+            return result;
+        }
+
+        private static async Task ScanLogicalDiskAsync()
+        {
+            foreach (var item in (await WMISearch<LogicalDisk>(WMIClasses.LogicalDisk)).Where(x => x.Type == "Local Disk"))
+            {
+                string scriptPath = Path.Combine(programPath, "CheckDiskHealth.ps1");
+                File.WriteAllText(scriptPath, $@"$(Repair - Volume - DriveLetter {item.Name}
+            -Scan *>&1 > {Path.Combine(programPath, $"{item.Name}Disk.txt")}");
             }
         }
     }

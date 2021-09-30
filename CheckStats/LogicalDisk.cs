@@ -4,7 +4,9 @@ namespace CheckStats
 {
     internal class LogicalDisk
     {
-        public string Name { get; set; }
+        private string name;
+
+        public string Name { get => name; set => name = value.Contains(":") ? value.Substring(0, value.Length-1) : value; }
         [ScriptIgnore]
         public uint DriveType { get; set; }
         public string Type
@@ -14,25 +16,25 @@ namespace CheckStats
                 switch (DriveType)
                 {
                     case 0:
-                       return "Unknown";
-                        
+                        return "Unknown";
+
                     case 1:
-                       return "No Root Directory";
-                        
+                        return "No Root Directory";
+
                     case 2:
-                       return "Removable Disk";
-                        
+                        return "Removable Disk";
+
                     case 3:
-                       return "Local Disk";
-                        
+                        return "Local Disk";
+
                     case 4:
-                       return "Network Drive";
-                        
+                        return "Network Drive";
+
                     case 5:
-                       return "Compact Disc";
-                        
+                        return "Compact Disc";
+
                     case 6:
-                       return "RAM Disk";
+                        return "RAM Disk";
                     default: return null;
 
                 }
@@ -41,5 +43,6 @@ namespace CheckStats
         public string FileSystem { get; set; }
         public ulong Size { get; set; }
         public ulong FreeSpace { get; set; }
+        public string HealthStatus { get; set; }
     }
 }

@@ -17,7 +17,7 @@
             public CPU Processor { get; set; }
             public Motherboard Motherboard { get; set; }
             public RAM[] RAM { get; set; }
-            public VideoAdapter[] VideoAdapter { get; set; }
+            public VideoAdapter[] GPU { get; set; }
             public Monitor[] Monitor { get; set; }
             public LogicalDisk[] LogicalPartition { get; set; }
             public PhysicalDisk[] Disk { get; set; }

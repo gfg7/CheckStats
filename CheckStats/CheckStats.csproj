@@ -51,7 +51,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CPU.cs" />
-    <Compile Include="DiskPartition.cs" />
     <Compile Include="LogicalDisk.cs" />
     <Compile Include="PhysicalDisk.cs" />
     <Compile Include="BaseModel.cs" />
