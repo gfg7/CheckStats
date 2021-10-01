@@ -18,5 +18,4 @@ D:\Check\CheckStats\bin\Debug\CheckStats.pdb
 D:\Check\CheckStats\obj\Debug\CheckStats.csproj.CoreCompileInputs.cache
 D:\Check\CheckStats\obj\Debug\CheckStats.exe
 D:\Check\CheckStats\obj\Debug\CheckStats.pdb
-D:\Check\CheckStats\obj\Debug\CheckStats.csproj.CopyComplete
 D:\Check\CheckStats\obj\Debug\CheckStats.csproj.AssemblyReference.cache
