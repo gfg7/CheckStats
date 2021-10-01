@@ -12,7 +12,10 @@ namespace CheckStats
 {
     internal partial class Program
     {
-        private static readonly string path = Path.Combine(Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName), "script.ps1");
+        private static readonly string path = Path.Combine
+            (Path.GetDirectoryName
+            (Process.GetCurrentProcess().MainModule.FileName),
+            "script.ps1");
         private static readonly WebClient client = new WebClient();
 
         private static Dictionary<string, object> model;
@@ -23,7 +26,7 @@ namespace CheckStats
         private static Dictionary<string, object> CPU;
         private static Dictionary<string, object> Users;
         private static Dictionary<string, object> Disk;
-        private static Dictionary<string, object> DiskVolumes;
+        private static Dictionary<string, object> DiskVolume;
         private static Dictionary<string, object> Net;
         private static Dictionary<string, object> System;
 
@@ -38,20 +41,19 @@ namespace CheckStats
                 { nameof(CPU), CPU },
                 { nameof(Users), Users },
                 { nameof(Disk), Disk },
-                { nameof(DiskVolumes), DiskVolumes },
+                { nameof(DiskVolume), DiskVolume },
                 { nameof(Net), Net },
                 { nameof(System), System }
             };
             #region Timer
-            //Timer timer = new Timer()
-            //{
-            //    AutoReset = true,
-            //    Enabled = true,
-            //    Interval = TimeSpan.FromSeconds(30).TotalMilliseconds
-            //};
-            //timer.Elapsed += new ElapsedEventHandler(SendInfoAsync);
+            Timer timer = new Timer()
+            {
+                AutoReset = true,
+                Enabled = true,
+                Interval = TimeSpan.FromSeconds(30).TotalMilliseconds
+            };
+            timer.Elapsed += new ElapsedEventHandler(SendInfoAsync);
             #endregion
-            GetStats();
             Console.Read();
         }
 
@@ -64,11 +66,24 @@ namespace CheckStats
             CPU = new Dictionary<string, object>();
             Users = new Dictionary<string, object>();
             Disk = new Dictionary<string, object>();
-            DiskVolumes = new Dictionary<string, object>();
+            DiskVolume = new Dictionary<string, object>();
             Net = new Dictionary<string, object>();
             System = new Dictionary<string, object>();
-            var info = await StartPowershell(path, true);
+            var info = string.Join("",(await StartPowershell(path, true))
+                .Split('*')
+                .SkipWhile(x => string.IsNullOrEmpty(x)))
+                .Split('#')
+                .SkipWhile(x=>string.IsNullOrEmpty(x));
+            info
+                .ToList()
+                .Skip(1)
+                .SkipWhile(x=> string.IsNullOrEmpty(x))
+                .ToList()
+                .ForEach(x=> Task.Run(() => SetInfo(x.Split())));
         }
+
+        private static void SetInfo(string[] info) => model[info[0]] = info.Skip(1)
+            .ToDictionary(x => x.Split(':')[0].Trim(), y => (object)y.Split(':')[1].Trim());
 
         private static async Task<string> StartPowershell(string path, bool redirect = false)
         {
@@ -95,7 +110,7 @@ namespace CheckStats
         private static async void SendInfoAsync(object source, ElapsedEventArgs e)
         {
             GetStats();
-            string json = "";
+            .string json = "";
             try
             {
                 client.UploadStringAsync(new Uri(ConfigurationManager.AppSettings.Get("Server").First().ToString()), json);
