@@ -18,6 +18,7 @@ namespace CheckStats
     internal partial class Program : IVisitor
     {
         private static readonly string programPath = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName);
+        private static readonly string resultsPath = Path.Combine(programPath, "CheckDiskHealth.txt");
 
         private static Computer c;
         private static HttpClient client;
@@ -46,7 +47,7 @@ namespace CheckStats
 
         private static async Task Main(string[] args)
         {
-            await FirstRun();
+            await FirstRunAsync();
             model = new BaseModel();
             p = new Program();
             client = new HttpClient();
@@ -185,10 +186,10 @@ namespace CheckStats
             }
 
             model.LogicalPartition = await WMISearch<LogicalDisk>(WMIClasses.LogicalDisk, null);
-
+            await ReadResultFileAsync();
         }
 
-        private static async Task<T[]> WMISearch<T>(string className, string scope=null) where T : class, new()
+        private static async Task<T[]> WMISearch<T>(string className, string scope = null) where T : class, new()
         {
             T[] array = null;
             using (ManagementObjectSearcher searcher = new ManagementObjectSearcher(
@@ -225,27 +226,38 @@ namespace CheckStats
             return array;
         }
 
-        private static async Task FirstRun()
+        private static async Task FirstRunAsync()
         {
             if (ConfigurationManager.AppSettings.Get("NeedTask").First() == '1')
             {
-                string path = Path.Combine(programPath, "createTask.ps1");
-
+                string path = Path.Combine(programPath, "SendStats.ps1");
+                string script = await Task.Run(ScanLogicalDisk);
                 File.WriteAllText(path,
-                    $@"Get-ScheduledTask -TaskName ""SendStats"" -ErrorAction SilentlyContinue -OutVariable task 
+                    $@"Get-ScheduledTask -TaskName ""CheckDiskHealth"" -ErrorAction SilentlyContinue -OutVariable disk 
+                    if (!$disk){{
+                    $Trigger = New-ScheduledTaskTrigger -AtStartup
+                    $User = ""NT AUTHORITY\SYSTEM""
+                    $Action = New-ScheduledTaskAction -Execute ""{script}""
+                    Register-ScheduledTask -TaskName ""CheckDiskHealth"" -Trigger $Trigger -User $User -Action $Action -RunLevel Highest -Force
+                    }}
+                    Get-ScheduledTask -TaskName ""SendStats"" -ErrorAction SilentlyContinue -OutVariable task 
                     if (!$task){{
                     $Trigger = New-ScheduledTaskTrigger -AtStartup
                     $User = ""NT AUTHORITY\SYSTEM""
                     $Action = New-ScheduledTaskAction -Execute ""{programPath}""
                     Register-ScheduledTask -TaskName ""SendStats"" -Trigger $Trigger -User $User -Action $Action -RunLevel Highest -Force
                     }}");
-
                 await StartPowershell(path);
-                var config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
-                ConfigurationManager.AppSettings.Set("NeedTask", "0");
-                config.Save(ConfigurationSaveMode.Modified);
-                ConfigurationManager.RefreshSection("NeedTask");
+                ChangeConfig("NeedTask", "0");
             }
+        }
+
+        private static void ChangeConfig(string key, string value)
+        {
+            var config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
+            ConfigurationManager.AppSettings.Set(key, value);
+            config.Save(ConfigurationSaveMode.Modified);
+            ConfigurationManager.RefreshSection(key);
         }
 
         private static async Task<string> StartPowershell(string path, bool redirect = false)
@@ -258,29 +270,60 @@ namespace CheckStats
                 CreateNoWindow = true,
                 WindowStyle = ProcessWindowStyle.Hidden,
                 UseShellExecute = false,
-                RedirectStandardOutput = true
+                RedirectStandardOutput = redirect
             };
             var task = Process.Start(startInfo);
             string result = null;
             if (redirect)
             {
-                using (var stream = task.StandardOutput)
+                using (var stream = task.StandardOutput.ReadToEndAsync())
                 {
-                    result = await stream.ReadToEndAsync();
+                    result = await stream;
                 }
             }
             task.WaitForExit();
             return result;
         }
 
-        private static async Task ScanLogicalDiskAsync()
+        private static string ScanLogicalDisk()
         {
-            foreach (var item in (await WMISearch<LogicalDisk>(WMIClasses.LogicalDisk)).Where(x => x.Type == "Local Disk"))
+            string scriptPath = Path.Combine(programPath, "CheckDiskHealth.ps1");
+            File.WriteAllText(scriptPath,
+                $"Start-Transcript -path {resultsPath} " +
+                $"$var=@(Get-Volume | Select -Property DriveLetter, Drivetype | " +
+                @"Where-Object { ($_.DriveLetter -ne $Null) -and($_.Drivetype -like ""Fixed"")} | Select -Property DriveLetter)" +
+                "foreach ($disk in $var) " +
+                "{" +
+                "$result = Repair-Volume -DriveLetter ($disk.DriveLetter) -Scan " +
+                "($disk.DriveLetter) + '=' + $result " +
+                "} " +
+                "Stop-Transcript"
+            );
+            return scriptPath;
+        }
+
+        private static async Task ReadResultFileAsync()
+        {
+            if (File.Exists(resultsPath))
             {
-                string scriptPath = Path.Combine(programPath, "CheckDiskHealth.ps1");
-                File.WriteAllText(scriptPath, $@"$(Repair - Volume - DriveLetter {item.Name}
-            -Scan *>&1 > {Path.Combine(programPath, $"{item.Name}Disk.txt")}");
+                var result = File.ReadAllText(resultsPath).Split('*').Where(x => !string.IsNullOrEmpty(x)).ToArray()[1].Split('\n').Skip(1);
+                if (result.Count() == model.LogicalPartition.Length)
+                {
+                    try
+                    {
+                        foreach (var item in result)
+                        {
+                            var str = item.Split('=');
+                            model.LogicalPartition.First(x => x.Name == str[0]).HealthStatus = str[1];
+                        }
+                        return;
+                    }
+                    catch { }
+                }
             }
+            ChangeConfig("NeedTask", "1");
+            await FirstRunAsync();
+            //await ReadResultFileAsync();
         }
     }
 }
